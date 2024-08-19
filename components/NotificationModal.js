@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { create } from 'zustand'
 import styled from 'styled-components';
 
 const NotificationContainer = styled.div`
@@ -16,17 +17,39 @@ const NotificationContainer = styled.div`
   transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
 `;
 
-export default function NotificationModal({ message, type, show, onClose }) {
+const NOTIFICATION_PERIOD = 3000
+
+const useNotificationsStore = create((set) => ({
+  message: '', type: '',
+  setMessage: (message) => set({message}),
+  notify: (message, type) => set({message, type})
+}))
+
+export const notifyError = (msg) => {
+  useNotificationsStore.getState().notify(msg, 'error')
+}
+
+export const notifySuccess = (msg) => {
+  useNotificationsStore.getState().notify(msg, 'success')
+}
+
+export default function NotificationModal() {
+  const message = useNotificationsStore(store => store.message)
+  const setMessage = useNotificationsStore(store => store.setMessage)
+  const type = useNotificationsStore(store => store.type)
+
+  const timerRef = useRef(setTimeout(() => {}, 0))
+
   useEffect(() => {
-    if (show) {
-      const timer = setTimeout(() => {
-        onClose();
-      }, 3000); 
-
-      return () => clearTimeout(timer);
+    if (message) {
+      clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => {
+        setMessage('') 
+      }, NOTIFICATION_PERIOD)
     }
-  }, [show, onClose]);
+  }, [message]);
 
+  const show = !!message;
   return (
     <NotificationContainer type={type} show={show}>
       {message}

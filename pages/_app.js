@@ -1,7 +1,12 @@
+import NotificationModal from '@/components/NotificationModal';
+
 import '../styles/globals.css';
 
-function MyApp({ Component, pageProps }) {
-  return <Component {...pageProps} />;
+export default function MyApp({ Component, pageProps }) {
+  return (
+    <>
+      <Component {...pageProps} />
+      <NotificationModal />
+    </>
+  );
 }
-
-export default MyApp;
