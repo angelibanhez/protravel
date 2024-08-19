@@ -14,12 +14,15 @@
     "@mui/material": "^5.16.7",
     "@prisma/client": "^5.18.0",
     "axios": "^1.7.4",
+    "lodash": "^4.17.21",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.52.2",
     "styled-components": "^6.1.12",
-    "yup": "^1.4.0"
+    "swr": "^2.2.5",
+    "yup": "^1.4.0",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
