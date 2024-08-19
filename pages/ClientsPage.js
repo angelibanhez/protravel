@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ClientsTable from '../components/ClientsTable';
 import AddClientModal from '../components/AddClientModal';
-import NotificationModal from '../components/NotificationModal';
+import { notifyError, notifySuccess } from '../components/NotificationModal';
+import fetchers from '@/lib/fetchers';
+import useSWR from 'swr';
+import _ from 'lodash'
 import styled from 'styled-components';
+import useBool from '@/hooks/useBool';
 
 // Styled components
 const Container = styled.div`
@@ -136,13 +140,21 @@ const ModalFooter = styled.div`
   justify-content: flex-end;
 `;
 
+const fetchClients = async () => {
+  return fetchers.GET('/api/clients').catch((err) => {
+    notifyError(err?.message)
+  })
+}
+
 // Main ClientsPage component
 export default function ClientsPage() {
   // State management
-  const [clients, setClients] = useState([]);
+  const {
+    data: clients = [], mutate: setClients
+  } = useSWR('clients', fetchClients)
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [notification, setNotification] = useState({ message: '', type: '', show: false });
+  const addModalState = useBool(false)
   const [newClient, setNewClient] = useState({
     name: "",
     email: "",
@@ -151,35 +163,16 @@ export default function ClientsPage() {
     recommendedBy: "",
     folios: []
   });
-  const [selectedClient, setSelectedClient] = useState(null);
-  const [showSideBar, setShowSideBar] = useState(false);
-  const [isFolioModalOpen, setIsFolioModalOpen] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState(null);
+  const selectedClient = _.find(clients, {id: selectedClientId})
+
+  const sideBarState = useBool(false)
+  const folioModalState = useBool(false)
   const [newFolio, setNewFolio] = useState({
     number: "",
     description: "",
     responsible: ""
   });
-
-  // Fetch clients from the database
-  useEffect(() => {
-    async function fetchClients() {
-      try {
-        const response = await fetch('/api/clients');
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setClients(data);
-        } else {
-          console.error('Expected an array but got:', data);
-          setClients([]);
-        }
-      } catch (error) {
-        console.error('Error fetching clients:', error);
-        setClients([]);
-        setNotification({ message: 'Error fetching clients', type: 'error', show: true });
-      }
-    }
-    fetchClients();
-  }, []);
 
   // Handle input changes for new client
   const handleInputChange = (e) => {
@@ -193,51 +186,33 @@ export default function ClientsPage() {
   // Save new client to the database
   const handleSaveClient = async () => {
     if (!newClient.name || !newClient.email || !newClient.phone || !newClient.nationality || !newClient.recommendedBy) {
-      setNotification({ message: 'All fields are required', type: 'error', show: true });
+      notifyError('All fields are required')
       return;
     }
   
-    try {
-      const response = await fetch('/api/clients', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newClient),
-      });
-  
-      if (response.ok) {
-        const client = await response.json();
-        setClients([...clients, client]);
-  
-        // Clear the input fields
-        setNewClient({
-          name: "",
-          email: "",
-          phone: "",
-          nationality: "",
-          recommendedBy: "",
-          folios: []
-        });
-  
-        setIsModalOpen(false);
-        setNotification({ message: 'Client added successfully!', type: 'success', show: true });
-      } else {
-        const errorData = await response.json();
-        console.error('Error adding client:', errorData);
-        setNotification({ message: `Error adding client: ${errorData.error}`, type: 'error', show: true });
-      }
-    } catch (error) {
-      console.error('Network or server error:', error);
-      setNotification({ message: 'Network or server error', type: 'error', show: true });
-    }
-  };
-  
+    const client = await fetchers.POST('/api/clients', newClient)
+      .catch((err) => {
+        notifyError(`Error adding client: ${err.message}`)
+      })
 
-  // Handle search input change
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
+    setClients([...clients, client], {
+      revalidate: false
+    });
+
+    // Clear the input fields
+    setNewClient({
+      name: "",
+      email: "",
+      phone: "",
+      nationality: "",
+      recommendedBy: "",
+      folios: []
+    });
+
+    addModalState.close()
+    notifySuccess('Client added successfully!')
   };
+  
 
   // Filter clients based on search query
   const filteredClients = clients.filter(client =>
@@ -246,13 +221,8 @@ export default function ClientsPage() {
 
   // Handle client click to open sidebar
   const handleClientClick = (client) => {
-    setSelectedClient(client);
-    setShowSideBar(true);
-  };
-
-  // Handle closing the sidebar
-  const handleCloseSideBar = () => {
-    setShowSideBar(false);
+    setSelectedClientId(client.id);
+    sideBarState.open()
   };
 
   // Handle folio input change
@@ -272,37 +242,34 @@ export default function ClientsPage() {
     };
 
     setClients(clients.map(client => client.id === selectedClient.id ? updatedClient : client));
-    setIsFolioModalOpen(false);
+    folioModalState.close()
     setNewFolio({ number: "", description: "", responsible: "" });
-  };
-
-  // Handle notification close
-  const handleNotificationClose = () => {
-    setNotification({ ...notification, show: false });
   };
 
   return (
     <Container>
       <Header>
         <Title>Clients</Title>
-        <ButtonStyled onClick={() => setIsModalOpen(true)}>Add Client</ButtonStyled>
+        <ButtonStyled onClick={addModalState.open}>
+          Add Client
+        </ButtonStyled>
       </Header>
       <SearchInput
         type="text"
         placeholder="Search by name"
         value={searchQuery}
-        onChange={handleSearchChange}
+        onChange={(e) => setSearchQuery(e.target.value)}
       />
       <ClientsTable clients={filteredClients} onClientClick={handleClientClick} />
 
-      <Overlay show={showSideBar} onClick={handleCloseSideBar} />
+      <Overlay show={sideBarState.value} onClick={sideBarState.close} />
 
-      <SideBarRight show={showSideBar}>
+      <SideBarRight show={sideBarState.value}>
         {selectedClient && (
           <>
             <SideBarHeader>
               <h3>{selectedClient.name}'s Details</h3>
-              <CloseButton onClick={handleCloseSideBar}>&times;</CloseButton>
+              <CloseButton onClick={sideBarState.close}>&times;</CloseButton>
             </SideBarHeader>
             <p>Email: {selectedClient.email}</p>
             <p>Phone: {selectedClient.phone}</p>
@@ -320,12 +287,14 @@ export default function ClientsPage() {
                 <p>No folios available for this client.</p>
               )}
             </FolioList>
-            <AddFolioButton onClick={() => setIsFolioModalOpen(true)}>Add Folio</AddFolioButton>
+            <AddFolioButton onClick={folioModalState.open}>
+              Add Folio
+            </AddFolioButton>
           </>
         )}
       </SideBarRight>
 
-      {isFolioModalOpen && (
+      {folioModalState.value && (
         <FolioModalStyled>
           <h3>Add New Folio</h3>
           <ModalInput
@@ -350,25 +319,23 @@ export default function ClientsPage() {
             onChange={handleFolioInputChange}
           />
           <ModalFooter>
-            <ButtonStyled onClick={handleAddFolio}>Save Folio</ButtonStyled>
-            <ButtonStyled onClick={() => setIsFolioModalOpen(false)} style={{ marginLeft: '1rem', backgroundColor: 'gray' }}>Cancel</ButtonStyled>
+            <ButtonStyled onClick={handleAddFolio}>
+              Save Folio
+            </ButtonStyled>
+            <ButtonStyled onClick={folioModalState.close}
+              style={{ marginLeft: '1rem', backgroundColor: 'gray' }}
+            >
+              Cancel
+            </ButtonStyled>
           </ModalFooter>
         </FolioModalStyled>
       )}
-
       <AddClientModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={addModalState.value}
+        onClose={addModalState.close}
         onSave={handleSaveClient}
         clientData={newClient}
         onChange={handleInputChange}
-      />
-
-      <NotificationModal
-        message={notification.message}
-        type={notification.type}
-        show={notification.show}
-        onClose={handleNotificationClose}
       />
     </Container>
   );
