@@ -1,3 +1,4 @@
+import React from 'react';
 import styled from 'styled-components';
 
 const TableContainer = styled.div`
@@ -37,6 +38,10 @@ const TableCell = styled.td`
 `;
 
 export default function ClientsTable({ clients, onClientClick }) {
+  if (clients.length === 0) {
+    return <p>No clients available.</p>;
+  }
+
   return (
     <TableContainer>
       <TableStyled>

@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // o "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String   @unique
+  phone       String
+  nationality String
+  recommendedBy String?
+  folios      Folio[]  // Relación uno a muchos con Folio
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Folio {
+  id          Int      @id @default(autoincrement())
+  number      String
+  description String
+  responsible String
+  clientId    Int
+  client      Client   @relation(fields: [clientId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

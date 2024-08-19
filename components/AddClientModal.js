@@ -1,4 +1,17 @@
+import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
+
+// Styled components for the overlay and modal
+const OverlayStyled = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px); /* Blur effect */
+  z-index: 999;
+`;
 
 const DialogStyled = styled.div`
   position: fixed;
@@ -64,58 +77,90 @@ const ButtonStyled = styled.button`
 `;
 
 export default function AddClientModal({ isOpen, onClose, onSave, clientData, onChange }) {
+  const modalRef = useRef();
+
+  // Close modal when clicking outside of it
+  const handleClickOutside = (event) => {
+    if (modalRef.current && !modalRef.current.contains(event.target)) {
+      onClose();
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Return null if the modal is not open
   if (!isOpen) return null;
 
   return (
-    <DialogStyled>
-      <DialogContentStyled>
-        <DialogHeaderStyled>
-          <DialogTitleStyled>Add New Client</DialogTitleStyled>
-          <DialogDescriptionStyled>Enter the client's details below.</DialogDescriptionStyled>
-        </DialogHeaderStyled>
-        <div>
-          <LabelStyled htmlFor="name">Name</LabelStyled>
-          <InputStyled
-            id="name"
-            name="name"
-            value={clientData.name}
-            onChange={onChange}
-          />
-          <LabelStyled htmlFor="email">Email</LabelStyled>
-          <InputStyled
-            id="email"
-            name="email"
-            type="email"
-            value={clientData.email}
-            onChange={onChange}
-          />
-          <LabelStyled htmlFor="phone">Phone</LabelStyled>
-          <InputStyled
-            id="phone"
-            name="phone"
-            value={clientData.phone}
-            onChange={onChange}
-          />
-          <LabelStyled htmlFor="nationality">Nationality</LabelStyled>
-          <InputStyled
-            id="nationality"
-            name="nationality"
-            value={clientData.nationality}
-            onChange={onChange}
-          />
-          <LabelStyled htmlFor="recommendedBy">Recommended By</LabelStyled>
-          <InputStyled
-            id="recommendedBy"
-            name="recommendedBy"
-            value={clientData.recommendedBy}
-            onChange={onChange}
-          />
-        </div>
-        <DialogFooterStyled>
-          <ButtonStyled onClick={onSave}>Save Client</ButtonStyled>
-          <ButtonStyled onClick={onClose} style={{ marginLeft: '1rem', backgroundColor: 'gray' }}>Cancel</ButtonStyled>
-        </DialogFooterStyled>
-      </DialogContentStyled>
-    </DialogStyled>
+    <>
+      <OverlayStyled /> {/* Blurred overlay */}
+      <DialogStyled ref={modalRef}>
+        <DialogContentStyled>
+          <DialogHeaderStyled>
+            <DialogTitleStyled>Add New Client</DialogTitleStyled>
+            <DialogDescriptionStyled>Enter the client's details below.</DialogDescriptionStyled>
+          </DialogHeaderStyled>
+          
+          {/* Form fields */}
+          <div>
+            <LabelStyled htmlFor="name">Name</LabelStyled>
+            <InputStyled
+              id="name"
+              name="name"
+              value={clientData.name}
+              onChange={onChange}
+            />
+
+            <LabelStyled htmlFor="email">Email</LabelStyled>
+            <InputStyled
+              id="email"
+              name="email"
+              type="email"
+              value={clientData.email}
+              onChange={onChange}
+            />
+
+            <LabelStyled htmlFor="phone">Phone</LabelStyled>
+            <InputStyled
+              id="phone"
+              name="phone"
+              value={clientData.phone}
+              onChange={onChange}
+            />
+
+            <LabelStyled htmlFor="nationality">Nationality</LabelStyled>
+            <InputStyled
+              id="nationality"
+              name="nationality"
+              value={clientData.nationality}
+              onChange={onChange}
+            />
+
+            <LabelStyled htmlFor="recommendedBy">Recommended By</LabelStyled>
+            <InputStyled
+              id="recommendedBy"
+              name="recommendedBy"
+              value={clientData.recommendedBy}
+              onChange={onChange}
+            />
+          </div>
+          
+          {/* Footer with action buttons */}
+          <DialogFooterStyled>
+            <ButtonStyled onClick={onSave}>Save Client</ButtonStyled>
+            <ButtonStyled onClick={onClose} style={{ marginLeft: '1rem', backgroundColor: 'gray' }}>Cancel</ButtonStyled>
+          </DialogFooterStyled>
+        </DialogContentStyled>
+      </DialogStyled>
+    </>
   );
 }

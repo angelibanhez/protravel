@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ClientsTable from '../components/ClientsTable';
 import AddClientModal from '../components/AddClientModal';
+import NotificationModal from '../components/NotificationModal';
 import styled from 'styled-components';
 
+// Styled components
 const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
@@ -134,44 +136,13 @@ const ModalFooter = styled.div`
   justify-content: flex-end;
 `;
 
+// Main ClientsPage component
 export default function ClientsPage() {
-  const [clients, setClients] = useState([
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      phone: "555-1234",
-      nationality: "USA",
-      recommendedBy: "Mike",
-      folios: [
-        { id: 1, number: "F001", description: "Purchase of flight tickets to NYC", responsible: "Alice" },
-        { id: 2, number: "F002", description: "Hotel booking in Manhattan", responsible: "Bob" },
-      ]
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      phone: "555-5678",
-      nationality: "Canada",
-      recommendedBy: "Sarah",
-      folios: [
-        { id: 1, number: "F003", description: "Purchase of cruise tickets", responsible: "Charlie" },
-      ]
-    },
-    {
-      id: 3,
-      name: "Bob Johnson",
-      email: "bob@example.com",
-      phone: "555-9012",
-      nationality: "UK",
-      recommendedBy: "Tom",
-      folios: []
-    },
-  ]);
-
+  // State management
+  const [clients, setClients] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [notification, setNotification] = useState({ message: '', type: '', show: false });
   const [newClient, setNewClient] = useState({
     name: "",
     email: "",
@@ -180,7 +151,6 @@ export default function ClientsPage() {
     recommendedBy: "",
     folios: []
   });
-
   const [selectedClient, setSelectedClient] = useState(null);
   const [showSideBar, setShowSideBar] = useState(false);
   const [isFolioModalOpen, setIsFolioModalOpen] = useState(false);
@@ -190,71 +160,125 @@ export default function ClientsPage() {
     responsible: ""
   });
 
+  // Fetch clients from the database
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const response = await fetch('/api/clients');
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setClients(data);
+        } else {
+          console.error('Expected an array but got:', data);
+          setClients([]);
+        }
+      } catch (error) {
+        console.error('Error fetching clients:', error);
+        setClients([]);
+        setNotification({ message: 'Error fetching clients', type: 'error', show: true });
+      }
+    }
+    fetchClients();
+  }, []);
+
+  // Handle input changes for new client
   const handleInputChange = (e) => {
-    setNewClient({
-      ...newClient,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setNewClient(prevState => ({
+      ...prevState,
+      [name]: value.trim(),
+    }));
   };
 
-  const handleSaveClient = () => {
-    setClients([...clients, { id: clients.length + 1, ...newClient }]);
-    setIsModalOpen(false);
-    setNewClient({
-      name: "",
-      email: "",
-      phone: "",
-      nationality: "",
-      recommendedBy: "",
-      folios: []
-    });
+  // Save new client to the database
+  const handleSaveClient = async () => {
+    if (!newClient.name || !newClient.email || !newClient.phone || !newClient.nationality || !newClient.recommendedBy) {
+      setNotification({ message: 'All fields are required', type: 'error', show: true });
+      return;
+    }
+  
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newClient),
+      });
+  
+      if (response.ok) {
+        const client = await response.json();
+        setClients([...clients, client]);
+  
+        // Clear the input fields
+        setNewClient({
+          name: "",
+          email: "",
+          phone: "",
+          nationality: "",
+          recommendedBy: "",
+          folios: []
+        });
+  
+        setIsModalOpen(false);
+        setNotification({ message: 'Client added successfully!', type: 'success', show: true });
+      } else {
+        const errorData = await response.json();
+        console.error('Error adding client:', errorData);
+        setNotification({ message: `Error adding client: ${errorData.error}`, type: 'error', show: true });
+      }
+    } catch (error) {
+      console.error('Network or server error:', error);
+      setNotification({ message: 'Network or server error', type: 'error', show: true });
+    }
   };
+  
 
+  // Handle search input change
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
   };
 
+  // Filter clients based on search query
   const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase())
+    client.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Handle client click to open sidebar
   const handleClientClick = (client) => {
     setSelectedClient(client);
     setShowSideBar(true);
   };
 
+  // Handle closing the sidebar
   const handleCloseSideBar = () => {
     setShowSideBar(false);
   };
 
+  // Handle folio input change
   const handleFolioInputChange = (e) => {
-    setNewFolio({
-      ...newFolio,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setNewFolio(prevState => ({
+      ...prevState,
+      [name]: value,
+    }));
   };
 
+  // Add new folio to the selected client
   const handleAddFolio = () => {
-    setSelectedClient(prevClient => ({
-      ...prevClient,
-      folios: [
-        ...prevClient.folios,
-        { id: prevClient.folios.length + 1, ...newFolio }
-      ]
-    }));
-    setClients(prevClients =>
-      prevClients.map(client =>
-        client.id === selectedClient.id
-          ? { ...selectedClient, folios: [...selectedClient.folios, { id: selectedClient.folios.length + 1, ...newFolio }] }
-          : client
-      )
-    );
+    const updatedClient = {
+      ...selectedClient,
+      folios: [...selectedClient.folios, { id: selectedClient.folios.length + 1, ...newFolio }],
+    };
+
+    setClients(clients.map(client => client.id === selectedClient.id ? updatedClient : client));
     setIsFolioModalOpen(false);
-    setNewFolio({
-      number: "",
-      description: "",
-      responsible: ""
-    });
+    setNewFolio({ number: "", description: "", responsible: "" });
+  };
+
+  // Handle notification close
+  const handleNotificationClose = () => {
+    setNotification({ ...notification, show: false });
   };
 
   return (
@@ -338,6 +362,13 @@ export default function ClientsPage() {
         onSave={handleSaveClient}
         clientData={newClient}
         onChange={handleInputChange}
+      />
+
+      <NotificationModal
+        message={notification.message}
+        type={notification.type}
+        show={notification.show}
+        onClose={handleNotificationClose}
       />
     </Container>
   );
